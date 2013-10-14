@@ -9,8 +9,9 @@ $configure = array(
     'depends' => array(
         'apache2',
         'libapache2-mod-php5',
-	'php-pear',
-	'acl'
+				'php-pear',
+				'acl',
+				'curl'
     ),
 
     'tmpdir' => '/tmp',
