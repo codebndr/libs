@@ -90,7 +90,7 @@ class DefaultController extends Controller
 	    }
     }
 
-	public function getExampleCodeAction($auth_key, $version)
+	public function getExampleCodeAction($auth_key, $version, $library, $example)
 	{
 		if ($auth_key !== $this->container->getParameter('auth_key'))
 		{
@@ -107,25 +107,28 @@ class DefaultController extends Controller
 
 			// retrieve GET and POST variables respectively
 			$file = $request->query->get('file');
-
-			$last_slash = strrpos($file, "/");
-			$filename = substr($file, $last_slash + 1);
-			$directory = substr($file, 0, $last_slash);
+			$example =	str_replace(":", "/", $example);
+			$example = pathinfo($example, PATHINFO_FILENAME);
+			$filename = $example;
+			$directory = $library;
 
 			$finder->files()->name($filename);
 			if (is_dir($arduino_library_files."examples"))
 			{
 				$finder->in($arduino_library_files."examples");
+				$finder->name($example.".ino", $example.".pde");
 			}
 
 			if (is_dir($arduino_library_files."libraries"))
 			{
 				$finder->in($arduino_library_files."libraries");
+				$finder->name($example.".ino", $example.".pde");
 			}
 
 			if (is_dir($arduino_library_files."external-libraries"))
 			{
 				$finder->in($arduino_library_files."external-libraries");
+				$finder->name($example.".ino", $example.".pde");
 			}
 
 			$finder->path($directory);
@@ -135,7 +138,9 @@ class DefaultController extends Controller
 			{
 				$response = $file->getContents();
 			}
-			return new Response($response);
+
+			$files[]=array("filename" => $filename, "code" => $file->getContents());
+			return new Response(json_encode(array('success' => true, "files" => $files)));
 		}
 		else
 		{
@@ -210,34 +215,29 @@ class DefaultController extends Controller
 
 		foreach ($finder as $file)
 		{
-//			if (strpos($file->getRelativePath(), "/examples/") === false)
-//				continue;
-
-			// Print the absolute path
-//		    print $file->getRealpath()."<br />\n";
-
-			// Print the relative path to the file, omitting the filename
-//			print $file->getRelativePath()."<br />\n";
-
-			// Print the relative path to the file
-//			print $file->getRelativePathname()."<br />\n";
-
 			$path = str_ireplace("/examples/", "/", $file->getRelativePath());
 			$library_name = strtok($path, "/");
-			$example_name = strtok("/");
-			$url = $this->get('router')->generate('codebender_library_get_example_code', array("auth_key" => $this->container->getParameter('auth_key'),"version" => $version),true).'?file='.$file->getRelativePathname();
+			$tmp = strtok("/");
+			$type = "";
+			$filename = $file->getBasename(".".$file->getExtension());
+			while($tmp!= "" && !($tmp === false))
+			{
+				if($tmp != 'examples' && $tmp != 'Examples' && $tmp != $filename)
+				{
+					if($type == "")
+						$type = $tmp;
+					else
+						$type = $type.":".$tmp;
+				}
+				$tmp = strtok("/");
+			}
+			$example_name= ($type == "" ?$filename : $type.":".$filename);
 
 			if(!isset($libraries[$library_name]))
 			{
 				$libraries[$library_name] = array("description"=> "", "examples" => array());
 			}
-			$libraries[$library_name]["examples"][] = array("name" => $example_name, "filename" => $file->getFilename(), "url" => $url);
-
-//			print $library_name."<br />\n";
-//			print $example_name."<br />\n";
-
-			// Print the relative path to the file
-//			print $file->getFilename()."<br />\n";
+			$libraries[$library_name]["examples"][] = array("name" => $example_name);
 		}
 		return $libraries;
 	}
