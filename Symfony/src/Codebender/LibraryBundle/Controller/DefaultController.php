@@ -100,52 +100,99 @@ class DefaultController extends Controller
 		if ($version == "v1")
 		{
 			$arduino_library_files = $this->container->getParameter('arduino_library_directory')."/";
+			$files = array();
 
-			$finder = new Finder();
-
-			$request = $this->getRequest();
-
-			// retrieve GET and POST variables respectively
-			$file = $request->query->get('file');
-			$example =	str_replace(":", "/", $example);
-			$example = pathinfo($example, PATHINFO_FILENAME);
-			$filename = $example;
-			$directory = $library;
-
-			$finder->files()->name($filename);
-			if (is_dir($arduino_library_files."examples"))
+			$dir = $arduino_library_files."examples/";
+			if (is_dir($dir))
 			{
-				$finder->in($arduino_library_files."examples");
-				$finder->name($example.".ino", $example.".pde");
+				$files = array_merge($files, $this->getExampleCodeFromDir($dir, $example));
 			}
 
-			if (is_dir($arduino_library_files."libraries"))
+			$dir = $arduino_library_files."libraries/";
+			if (is_dir($arduino_library_files."libraries/"))
 			{
-				$finder->in($arduino_library_files."libraries");
-				$finder->name($example.".ino", $example.".pde");
+				$files = array_merge($files, $this->getExampleCodeFromDir($dir, $example));
 			}
 
-			if (is_dir($arduino_library_files."external-libraries"))
+			$dir = $arduino_library_files."external-libraries/";
+			if (is_dir($dir))
 			{
-				$finder->in($arduino_library_files."external-libraries");
-				$finder->name($example.".ino", $example.".pde");
+				$files = array_merge($files, $this->getExampleCodeFromDir($dir, $example));
 			}
 
-			$finder->path($directory);
-
-			$response = "";
-			foreach ($finder as $file)
-			{
-				$response = $file->getContents();
-			}
-
-			$files[]=array("filename" => $filename, "code" => $file->getContents());
 			return new Response(json_encode(array('success' => true, "files" => $files)));
 		}
 		else
-		{
+			{
 			return new Response(json_encode(array("success" => false, "step" => 0, "message" => "Invalid API version.")));
 		}
+			}
+
+    private function getExampleCodeFromDir($dir, $example)
+    {
+        $finder = new Finder();
+        $finder->in($dir);
+        $finder->name($example.".ino", $example.".pde");
+
+        if(iterator_count($finder) == 0)
+			{
+            $example =  str_replace(":", "/", $example);
+            $filename = pathinfo($example, PATHINFO_FILENAME);
+            $finder->name($filename.".ino", $filename.".pde");
+            if(iterator_count($finder) > 1)
+            {
+                $filesPath = NULL;
+                foreach($finder as $e)
+                {
+                    $path = $e -> getPath();
+                    if(!(strpos($path, $example)===false))
+                    {
+                        $filesPath = $e;
+                        break;
+                    }
+                }
+                if(!$filesPath)
+                {
+                    return array();
+			}
+		}
+            else if(iterator_count($finder) == 0)
+                return array();
+		else
+		{
+                $filesPathIterator = iterator_to_array($finder, false);
+                $filesPath = $filesPathIterator[0]->getPath();
+            }
+        }
+
+        else
+        {
+            $filesPathIterator = iterator_to_array($finder, false);
+            $filesPath = $filesPathIterator[0]->getPath();
+        }
+        $files = $this->getExampleFilesFromDir($filesPath);
+        return $files;
+    }
+
+    private function getExampleFilesFromDir($dir)
+    {
+        $filesFinder = new Finder();
+        $filesFinder->in($dir);
+        $filesFinder->name('*.cpp')->name('*.h')->name('*.c')->name('*.S')->name('*.pde')->name('*.ino');
+
+        $files = array();
+        foreach($filesFinder as $file)
+        {
+            if($file->getExtension() == "pde")
+                $name = $file->getBasename("pde")."ino";
+            else
+                $name = $file->getFilename();
+
+            $files[]=array("filename" => $name, "code" => $file->getContents());
+
+		}
+
+        return $files;
 	}
 
 	public function getLibraryCodeAction($auth_key, $version)
