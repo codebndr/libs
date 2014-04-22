@@ -103,21 +103,21 @@ class DefaultController extends Controller
 			$files = array();
 
 			$dir = $arduino_library_files."examples/";
-			if (is_dir($dir))
+			if (is_dir($dir.$library))
 			{
-				$files = array_merge($files, $this->getExampleCodeFromDir($dir, $example));
+				$files = array_merge($files, $this->getExampleCodeFromDir($dir, $library, $example));
 			}
 
 			$dir = $arduino_library_files."libraries/";
-			if (is_dir($arduino_library_files."libraries/"))
+			if ($dir.$library)
 			{
-				$files = array_merge($files, $this->getExampleCodeFromDir($dir, $example));
+				$files = array_merge($files, $this->getExampleCodeFromDir($dir, $library, $example));
 			}
 
 			$dir = $arduino_library_files."external-libraries/";
-			if (is_dir($dir))
+			if (is_dir($dir.$library))
 			{
-				$files = array_merge($files, $this->getExampleCodeFromDir($dir, $example));
+				$files = array_merge($files, $this->getExampleCodeFromDir($dir, $library, $example));
 			}
 
 			return new Response(json_encode(array('success' => true, "files" => $files)));
@@ -128,10 +128,10 @@ class DefaultController extends Controller
 		}
 			}
 
-    private function getExampleCodeFromDir($dir, $example)
+    private function getExampleCodeFromDir($dir, $library,  $example)
     {
         $finder = new Finder();
-        $finder->in($dir);
+        $finder->in($dir.$library);
         $finder->name($example.".ino", $example.".pde");
 
         if(iterator_count($finder) == 0)
